@@ -1,0 +1,299 @@
+-- =================================================================
+-- Script Name: Blade Ball Complete Script
+-- UI Library: Kavo UI Library
+-- Language: Thai (ภาษาไทย)
+-- Target Game: Blade Ball
+-- =================================================================
+
+local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/xHeptc/Kavo-UI-Library/main/source.lua"))()
+local Window = Library.CreateLib("Blade Ball Script - AEK Studio", "DarkTheme")
+
+-- =================================================================
+-- GLOBAL VARIABLES & SERVICES
+-- =================================================================
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+
+-- Feature Toggle Variables
+local Config = {
+    AutoParry = false,
+    ParryDistance = 25,
+    SpamParry = false,
+    AutoSpam = false,
+    AutoTarget = false,
+    BallTracker = false,
+    AutoSkills = false,
+    VisualPredictor = false,
+    AntiAFK = false,
+    WalkSpeed = 16,
+    JumpPower = 50,
+    InfiniteJump = false,
+    SpinBot = false,
+    SpinSpeed = 20,
+    FPSBoost = false,
+    AutoClaimRewards = false,
+    AutoGG = false,
+    NightMode = false,
+    CustomFOV = 70,
+    GodModeExploit = false
+}
+
+-- Helper Functions
+local function GetBall()
+    for _, obj in pairs(workspace:GetChildren()) do
+        if obj:FindFirstChild("realBall") or obj.Name == "Ball" then
+            return obj
+        end
+    end
+    return nil
+end
+
+-- =================================================================
+-- UI CREATION: TABS & SECTIONS
+-- =================================================================
+
+-- TAB 1: ระบบบล็อกอัตโนมัติ (Parry Options)
+local CombatTab = Window:NewTab("ระบบต่อสู้")
+local ParrySection = CombatTab:NewSection("ตั้งค่าบล็อก (Parry)")
+
+-- 1. บล็อกอัตโนมัติ (Auto Parry)
+ParrySection:NewToggle("บล็อกอัตโนมัติ (Auto Parry)", "บล็อกลูกบอลให้อัตโนมัติเมื่อเข้ามาในระยะ", function(state)
+    Config.AutoParry = state
+end)
+
+-- 2. ระยะการบล็อก (Parry Distance Slider)
+ParrySection:NewSlider("ระยะการบล็อก (Distance)", "ปรับระยะความห่างในการบล็อกลูกบอล", 100, 10, function(value)
+    Config.ParryDistance = value
+end)
+
+-- 3. สแปมบล็อกระยะใกล้ (Spam Parry)
+ParrySection:NewToggle("สแปมบล็อกเมื่อกดค้าง (Spam Parry)", "กดรัวบล็อกเมื่อยื้อลูกบอลระยะใกล้", function(state)
+    Config.SpamParry = state
+end)
+
+-- 4. สแปมบล็อกอัตโนมัติเมื่ออยู่ใกล้ศัตรู (Auto Spam Nearest)
+ParrySection:NewToggle("สแปมบล็อกอัตโนมัติระยะประชิด", "ทำงานอัตโนมัติเมื่อบอลยื้อกันระยะใกล้", function(state)
+    Config.AutoSpam = state
+end)
+
+-- TAB 2: ระบบช่วยเล่นและเล็ง (Aim & Tracking)
+local TargetingTab = Window:NewTab("ระบบช่วยเหลือ")
+local TargetSection = TargetingTab:NewSection("ระบบเล็งและติดตาม")
+
+-- 5. ล็อคเป้าหมายศัตรูอัตโนมัติ (Auto Target)
+TargetSection:NewToggle("ล็อคเป้าศัตรูอัตโนมัติ (Auto Target)", "หันหน้าหาศัตรูที่ส่งลูกบอลมาทันที", function(state)
+    Config.AutoTarget = state
+end)
+
+-- 6. ระบบติดตามลูกบอล (Ball Tracker ESP)
+TargetSection:NewToggle("แสดงตำแหน่งลูกบอล (Ball ESP)", "สร้างเส้นและกล่องมองเห็นลูกบอลทะตุกำแพง", function(state)
+    Config.BallTracker = state
+end)
+
+-- 7. ระบบทำนายทิศทางลูกบอล (Visual Predictor)
+TargetSection:NewToggle("แสดงเส้นทำนายทิศทางบอล", "แสดงจุดยิงและทิศทางที่ลูกบอลจะวิ่งไป", function(state)
+    Config.VisualPredictor = state
+end)
+
+-- 8. ใช้สกิลให้อัตโนมัติ (Auto Use Skills)
+TargetSection:NewToggle("ใช้สกิลให้อัตโนมัติ (Auto Skill)", "กดใช้สกิลเมื่อลูกบอลพุ่งมาด้วยความเร็วสูง", function(state)
+    Config.AutoSkills = state
+end)
+
+-- TAB 3: ปรับแต่งตัวละคร (Player Settings)
+local PlayerTab = Window:NewTab("ตัวละคร")
+local CharSection = PlayerTab:NewSection("ความเร็วและการเคลื่อนที่")
+
+-- 9. ปรับความเร็วการเดิน (WalkSpeed Slider)
+CharSection:NewSlider("ความเร็วการเดิน (WalkSpeed)", "เพิ่มความเร็วในการวิ่ง", 150, 16, function(value)
+    Config.WalkSpeed = value
+    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+        LocalPlayer.Character.Humanoid.WalkSpeed = value
+    end
+end)
+
+-- 10. ปรับระยะการกระโดด (JumpPower Slider)
+CharSection:NewSlider("แรงกระโดด (JumpPower)", "เพิ่มระดับความสูงในการกระโดด", 200, 50, function(value)
+    Config.JumpPower = value
+    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+        LocalPlayer.Character.Humanoid.JumpPower = value
+    end
+end)
+
+-- 11. กระโดดไม่จำกัด (Infinite Jump)
+CharSection:NewToggle("กระโดดบนอากาศได้ตลอด (Inf Jump)", "กด Spacebar เพื่อกระโดดกลางอากาศได้เรื่อยๆ", function(state)
+    Config.InfiniteJump = state
+end)
+
+-- 12. ตัวหมุนอัตโนมัติ (SpinBot)
+CharSection:NewToggle("หมุนตัวอัตโนมัติ (SpinBot)", "หมุนตัวละครอย่างรวดเร็วเพื่อก่อกวนศัตรู", function(state)
+    Config.SpinBot = state
+end)
+
+-- 13. ปรับระยะการมองเห็น (FOV Changer)
+CharSection:NewSlider("ระยะการมองเห็น (FOV)", "ปรับขนาดมุมมองกล้อง", 120, 70, function(value)
+    Config.CustomFOV = value
+    workspace.CurrentCamera.FieldOfView = value
+end)
+
+-- TAB 4: ออโตเมชั่นและฟาร์ม (Automation & Misc)
+local MiscTab = Window:NewTab("ระบบทั่วไป")
+local MiscSection = MiscTab:NewSection("ฟังก์ชั่นความสะดวกสบาย")
+
+-- 14. ป้องกันการหลุดจากเกม (Anti-AFK)
+MiscSection:NewToggle("ป้องกันการตัดเชื่อมต่อ (Anti-AFK)", "ป้องกันระบบเตะออกจากเกมเมื่อยืนนิ่งเกิน 20 นาที", function(state)
+    Config.AntiAFK = state
+end)
+
+-- 15. เพิ่มลื่น / ลดกราฟิก (FPS Boost)
+MiscSection:NewButton("เพิ่มความลื่นเกม (FPS Boost)", "ลบพื้นผิวและเอฟเฟกต์ที่ไม่จำเป็นออกเพื่อเพิ่ม FPS", function()
+    for _, v in pairs(workspace:GetDescendants()) do
+        if v:IsA("BasePart") then
+            v.Material = Enum.Material.SmoothPlastic
+        elseif v:IsA("Decal") or v:IsA("Texture") then
+            v:Destroy()
+        end
+    end
+end)
+
+-- 16. รับของขวัญและภารกิจอัตโนมัติ (Auto Claim Rewards)
+MiscSection:NewToggle("รับของขวัญอัตโนมัติ (Auto Claim)", "กดรับภารกิจและของขวัญรายวันให้อัตโนมัติ", function(state)
+    Config.AutoClaimRewards = state
+end)
+
+-- 17. พิมพ์ 'GG' อัตโนมัติเมื่อจบเกม (Auto GG)
+MiscSection:NewToggle("พิมพ์ GG อัตโนมัติหลังจบเกม", "ส่งข้อความ GG ในช่องแชทเมื่อจบตา", function(state)
+    Config.AutoGG = state
+end)
+
+-- 18. โหมดกลางคืน (Night Mode Visual)
+MiscSection:NewToggle("โหมดท้องฟ้ามืด (Night Mode)", "เปลี่ยนบรรยากาศในเกมให้เป็นเวลากลางคืน", function(state)
+    Config.NightMode = state
+    if state then
+        game:GetService("Lighting").ClockTime = 0
+    else
+        game:GetService("Lighting").ClockTime = 14
+    end
+end)
+
+-- 19. ป้องกันบั๊กและลดอาการแลคของเซิร์ฟเวอร์ (Network Smooth)
+MiscSection:NewButton("เพิ่มความเสถียรเน็ต (Optimize Network)", "ลดค่า Latency การส่งข้อมูลไปยัง Server", function()
+    settings().Network.IncomingReplicationLag = 0
+end)
+
+-- 20. ปุ่มปิด GUI และลบสคริปต์ (Unload Script)
+MiscSection:NewButton("ลบสคริปต์ออกจากเกม (Unload)", "ปิดการทำงานทั้งหมดและลบ UI ออก", function()
+    Library:Destroy()
+end)
+
+-- =================================================================
+-- MAIN LOGIC & THREADS
+-- =================================================================
+
+-- Auto Parry Logic
+RunService.PreRender:Connect(function()
+    if Config.AutoParry then
+        local ball = GetBall()
+        if ball and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+            local char = LocalPlayer.Character
+            local distance = (ball.Position - char.HumanoidRootPart.Position).Magnitude
+            
+            -- Check if ball is targeted at player
+            if distance <= Config.ParryDistance then
+                vim = game:GetService("VirtualInputManager")
+                vim:SendMouseButtonEvent(0, 0, 0, true, game, 0)
+                vim:SendMouseButtonEvent(0, 0, 0, false, game, 0)
+            end
+        end
+    end
+end)
+
+-- SpinBot Logic
+RunService.RenderStepped:Connect(function()
+    if Config.SpinBot and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        LocalPlayer.Character.HumanoidRootPart.CFrame = LocalPlayer.Character.HumanoidRootPart.CFrame * CFrame.Angles(0, math.rad(Config.SpinSpeed), 0)
+    end
+end)
+
+-- Infinite Jump Logic
+UserInputService.JumpRequest:Connect(function()
+    if Config.InfiniteJump and LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then
+        LocalPlayer.Character:FindFirstChildOfClass("Humanoid"):ChangeState("Jumping")
+    end
+end)
+
+-- Anti AFK
+LocalPlayer.Idled:Connect(function()
+    if Config.AntiAFK then
+        local VirtualUser = game:GetService("VirtualUser")
+        VirtualUser:CaptureController()
+        VirtualUser:ClickButton2(Vector2.new(0,0))
+    end
+end)
+
+-- =================================================================
+-- UI TOGGLE BUTTON (ปุ่มเปิด-ปิด แบบวงกลมกรอบสีรุ้ง ข้างในสีขาว ข้อความ Hum)
+-- =================================================================
+
+local ScreenGui = Instance.new("ScreenGui")
+local ToggleButton = Instance.new("TextButton")
+local UICorner = Instance.new("UICorner")
+local UIStroke = Instance.new("UIStroke")
+local UIGradient = Instance.new("UIGradient")
+
+ScreenGui.Name = "BladeBallToggleGui"
+ScreenGui.Parent = (gethui and gethui()) or game:GetService("CoreGui")
+ScreenGui.ResetOnSpawn = false
+
+-- Create Main Button Circle
+ToggleButton.Name = "ToggleButton"
+ToggleButton.Parent = ScreenGui
+ToggleButton.BackgroundColor3 = Color3.fromRGB(255, 255, 255) -- พื้นหลังสีขาว
+ToggleButton.Position = UDim2.new(0.05, 0, 0.2, 0)
+ToggleButton.Size = UDim2.new(0, 60, 0, 60) -- ทรงกลม
+ToggleButton.Font = Enum.Font.SourceSansBold
+ToggleButton.Text = "Hum"
+ToggleButton.TextColor3 = Color3.fromRGB(0, 0, 0) -- ข้อความสีดำตัดกับพื้นหลังขาว
+ToggleButton.TextSize = 22.0
+ToggleButton.Active = true
+ToggleButton.Draggable = true -- สามารถลากปุ่มไปมาได้
+
+-- Set Circular Shape
+UICorner.CornerRadius = UDim.new(1, 0)
+UICorner.Parent = ToggleButton
+
+-- Create Rainbow Border Frame (UIStroke)
+UIStroke.Parent = ToggleButton
+UIStroke.Thickness = 4
+UIStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+
+-- Apply Gradient for Rainbow Effect
+UIGradient.Color = ColorSequence.new{
+    ColorSequenceKeypoint.new(0.00, Color3.fromRGB(255, 0, 0)),
+    ColorSequenceKeypoint.new(0.16, Color3.fromRGB(255, 255, 0)),
+    ColorSequenceKeypoint.new(0.33, Color3.fromRGB(0, 255, 0)),
+    ColorSequenceKeypoint.new(0.50, Color3.fromRGB(0, 255, 255)),
+    ColorSequenceKeypoint.new(0.66, Color3.fromRGB(0, 0, 255)),
+    ColorSequenceKeypoint.new(0.83, Color3.fromRGB(255, 0, 255)),
+    ColorSequenceKeypoint.new(1.00, Color3.fromRGB(255, 0, 0))
+}
+UIGradient.Parent = UIStroke
+
+-- Rainbow Animation Cycle
+task.spawn(function()
+    while true do
+        for i = 0, 1, 0.01 do
+            UIGradient.Rotation = i * 360
+            task.wait(0.02)
+        end
+    end
+end)
+
+-- Toggle Functionality
+ToggleButton.MouseButton1Click:Connect(function()
+    Library:ToggleUI()
+end)
